@@ -773,123 +773,127 @@
         </div>
     </footer>
 
-    <script>
-        // JavaScript will be placed here
-        document.addEventListener('DOMContentLoaded', function() {
-            // Mobile Navigation
-            const hamburger = document.querySelector('.hamburger');
-            const navMenu = document.querySelector('.nav-menu');
-            
-            hamburger.addEventListener('click', function() {
-                hamburger.classList.toggle('active');
-                navMenu.classList.toggle('active');
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Mobile Navigation
+        const hamburger = document.querySelector('.hamburger');
+        const navMenu = document.querySelector('.nav-menu');
+        
+        hamburger.addEventListener('click', function() {
+            hamburger.classList.toggle('active');
+            navMenu.classList.toggle('active');
+        });
+        
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function() {
+                hamburger.classList.remove('active');
+                navMenu.classList.remove('active');
             });
-            
-            document.querySelectorAll('.nav-link').forEach(link => {
-                link.addEventListener('click', function() {
-                    hamburger.classList.remove('active');
-                    navMenu.classList.remove('active');
-                });
-            });
-            
-            // Sticky Header
-            const header = document.getElementById('header');
-            window.addEventListener('scroll', function() {
-                if (window.scrollY > 50) {
-                    header.classList.add('scrolled');
-                } else {
-                    header.classList.remove('scrolled');
+        });
+        
+        // Sticky Header
+        const header = document.getElementById('header');
+        window.addEventListener('scroll', function() {
+            if (window.scrollY > 50) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
+        });
+        
+        // Smooth Scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                if (targetId === '#') return;
+                
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    window.scrollTo({
+                        top: targetElement.offsetTop - 80,
+                        behavior: 'smooth'
+                    });
                 }
             });
-            
-            // Smooth Scrolling
-            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-                anchor.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const targetId = this.getAttribute('href');
-                    if (targetId === '#') return;
-                    
-                    const targetElement = document.querySelector(targetId);
-                    if (targetElement) {
-                        window.scrollTo({
-                            top: targetElement.offsetTop - 80,
-                            behavior: 'smooth'
-                        });
-                    }
-                });
+        });
+        
+        // Testimonial Slider
+        const testimonials = document.querySelectorAll('.testimonial');
+        let currentTestimonial = 0;
+        
+        function showTestimonial(index) {
+            testimonials.forEach(testimonial => {
+                testimonial.classList.remove('active');
             });
             
-            // Testimonial Slider
-            const testimonials = document.querySelectorAll('.testimonial');
-            let currentTestimonial = 0;
+            testimonials[index].classList.add('active');
+        }
+        
+        function nextTestimonial() {
+            currentTestimonial = (currentTestimonial + 1) % testimonials.length;
+            showTestimonial(currentTestimonial);
+        }
+        
+        // Change testimonial every 5 seconds
+        setInterval(nextTestimonial, 5000);
+        
+        // Scroll Animations
+        const animatedElements = document.querySelectorAll('.gallery-item, .achievement-card, .message-card');
+        
+        function checkScroll() {
+            const windowHeight = window.innerHeight;
             
-            function showTestimonial(index) {
-                testimonials.forEach(testimonial => {
-                    testimonial.classList.remove('active');
-                });
+            animatedElements.forEach(element => {
+                const position = element.getBoundingClientRect().top;
                 
-                testimonials[index].classList.add('active');
-            }
-            
-            function nextTestimonial() {
-                currentTestimonial = (currentTestimonial + 1) % testimonials.length;
-                showTestimonial(currentTestimonial);
-            }
-            
-            // Change testimonial every 5 seconds
-            setInterval(nextTestimonial, 5000);
-            
-            // Scroll Animations
-            const animatedElements = document.querySelectorAll('.gallery-item, .achievement-card, .message-card');
-            
-            function checkScroll() {
-                const windowHeight = window.innerHeight;
-                
-                animatedElements.forEach(element => {
-                    const position = element.getBoundingClientRect().top;
-                    
-                    if (position < windowHeight - 100) {
-                        element.classList.add('visible');
-                    }
-                });
-            }
-            
-            // Initial check
-            checkScroll();
-            
-            // Check on scroll
-            window.addEventListener('scroll', checkScroll);
-            
-            // Message Form Handling
-            const messageForm = document.getElementById('messageForm');
-            const messagesContainer = document.getElementById('messagesContainer');
-            
-            // In a real implementation, this would connect to the backend
-            // For demonstration, we're using localStorage
-            function loadMessages() {
-                const messages = JSON.parse(localStorage.getItem('classMessages')) || [];
+                if (position < windowHeight - 100) {
+                    element.classList.add('visible');
+                }
+            });
+        }
+        
+        // Initial check
+        checkScroll();
+        
+        // Check on scroll
+        window.addEventListener('scroll', checkScroll);
+        
+        // Message Form Handling - UPDATED FOR MULTI-DEVICE SUPPORT
+        const messageForm = document.getElementById('messageForm');
+        const messagesContainer = document.getElementById('messagesContainer');
+        
+        // Load messages from server
+        async function loadMessages() {
+            try {
+                const response = await fetch('/messages');
+                const messages = await response.json();
                 
                 messagesContainer.innerHTML = '';
                 
-                messages.forEach((message, index) => {
+                messages.forEach(message => {
                     const messageCard = document.createElement('div');
                     messageCard.className = 'message-card';
+                    messageCard.dataset.id = message.id;
+                    
                     messageCard.innerHTML = `
                         <div class="message-header">
                             <span class="message-author">${message.author}</span>
                             <span class="message-date">${message.date}</span>
                         </div>
                         <div class="message-content">${message.content}</div>
-                        <button class="delete-btn" data-index="${index}">Delete</button>
+                        ${message.can_delete ? `<button class="delete-btn" data-id="${message.id}">Delete</button>` : ''}
                     `;
                     
                     messagesContainer.appendChild(messageCard);
                     
-                    // Add delete functionality
-                    const deleteBtn = messageCard.querySelector('.delete-btn');
-                    deleteBtn.addEventListener('click', function() {
-                        deleteMessage(index);
-                    });
+                    // Add delete functionality if applicable
+                    if (message.can_delete) {
+                        const deleteBtn = messageCard.querySelector('.delete-btn');
+                        deleteBtn.addEventListener('click', function() {
+                            deleteMessage(message.id);
+                        });
+                    }
                 });
                 
                 // Animate message cards
@@ -898,53 +902,104 @@
                         card.classList.add('visible');
                     });
                 }, 100);
+            } catch (error) {
+                console.error('Error loading messages:', error);
+                messagesContainer.innerHTML = '<p>Error loading messages. Please try again later.</p>';
             }
-            
-            function saveMessage(author, content) {
-                const messages = JSON.parse(localStorage.getItem('classMessages')) || [];
-                const newMessage = {
-                    author: author,
-                    content: content,
-                    date: new Date().toLocaleDateString()
-                };
+        }
+        
+        // Save message to server
+        async function saveMessage(author, content) {
+            try {
+                const response = await fetch('/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ author, content })
+                });
                 
-                messages.push(newMessage);
-                localStorage.setItem('classMessages', JSON.stringify(messages));
-                
-                loadMessages();
-            }
-            
-            function deleteMessage(index) {
-                const messages = JSON.parse(localStorage.getItem('classMessages')) || [];
-                messages.splice(index, 1);
-                localStorage.setItem('classMessages', JSON.stringify(messages));
-                
-                loadMessages();
-            }
-            
-            messageForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                const author = document.getElementById('authorName').value;
-                const content = document.getElementById('messageContent').value;
-                
-                if (author && content) {
-                    saveMessage(author, content);
+                if (response.ok) {
+                    const newMessage = await response.json();
                     
-                    // Reset form
-                    messageForm.reset();
+                    // Add the new message to the UI
+                    const messageCard = document.createElement('div');
+                    messageCard.className = 'message-card visible';
+                    messageCard.dataset.id = newMessage.id;
                     
-                    // Scroll to messages
-                    window.scrollTo({
-                        top: messagesContainer.offsetTop - 100,
-                        behavior: 'smooth'
+                    messageCard.innerHTML = `
+                        <div class="message-header">
+                            <span class="message-author">${newMessage.author}</span>
+                            <span class="message-date">${newMessage.date}</span>
+                        </div>
+                        <div class="message-content">${newMessage.content}</div>
+                        <button class="delete-btn" data-id="${newMessage.id}">Delete</button>
+                    `;
+                    
+                    messagesContainer.prepend(messageCard);
+                    
+                    // Add delete functionality
+                    const deleteBtn = messageCard.querySelector('.delete-btn');
+                    deleteBtn.addEventListener('click', function() {
+                        deleteMessage(newMessage.id);
                     });
+                } else {
+                    console.error('Failed to save message');
+                    alert('Failed to save message. Please try again.');
                 }
-            });
+            } catch (error) {
+                console.error('Error saving message:', error);
+                alert('Error saving message. Please check your connection and try again.');
+            }
+        }
+        
+        // Delete message from server
+        async function deleteMessage(messageId) {
+            try {
+                const response = await fetch(`/messages/${messageId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    // Remove the message from the UI
+                    const messageCard = document.querySelector(`.message-card[data-id="${messageId}"]`);
+                    if (messageCard) {
+                        messageCard.remove();
+                    }
+                } else {
+                    console.error('Failed to delete message');
+                    alert('Failed to delete message. It may have already been deleted or you do not have permission.');
+                }
+            } catch (error) {
+                console.error('Error deleting message:', error);
+                alert('Error deleting message. Please check your connection and try again.');
+            }
+        }
+        
+        messageForm.addEventListener('submit', function(e) {
+            e.preventDefault();
             
-            // Initial load of messages
-            loadMessages();
+            const author = document.getElementById('authorName').value;
+            const content = document.getElementById('messageContent').value;
+            
+            if (author && content) {
+                saveMessage(author, content);
+                
+                // Reset form
+                messageForm.reset();
+                
+                // Scroll to messages
+                window.scrollTo({
+                    top: messagesContainer.offsetTop - 100,
+                    behavior: 'smooth'
+                });
+            }
         });
-    </script>
+        
+        // Initial load of messages
+        loadMessages();
+    });
+</script>
 </body>
+
 </html>
