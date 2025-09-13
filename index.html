@@ -862,6 +862,7 @@
         // Message Form Handling - FIXED VERSION
         const messageForm = document.getElementById('messageForm');
         const messagesContainer = document.getElementById('messagesContainer');
+        const API_BASE_URL = window.location.origin; // Gunakan origin yang sama dengan halaman
         
         // Function to show notification
         function showNotification(message, isError = false) {
@@ -880,12 +881,13 @@
             notification.style.position = 'fixed';
             notification.style.top = '20px';
             notification.style.right = '20px';
-            notification.style.padding = '10px 20px';
+            notification.style.padding = '12px 20px';
             notification.style.borderRadius = '5px';
             notification.style.color = 'white';
             notification.style.zIndex = '10000';
             notification.style.opacity = '0';
             notification.style.transition = 'opacity 0.3s ease';
+            notification.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
             
             if (isError) {
                 notification.style.background = '#ff6b6b';
@@ -912,9 +914,14 @@
         // Load messages from server
         async function loadMessages() {
             try {
-                const response = await fetch('/messages');
+                const response = await fetch(`${API_BASE_URL}/messages`);
                 
                 if (!response.ok) {
+                    // Jika response bukan JSON, coba baca sebagai teks
+                    if (!response.headers.get('content-type')?.includes('application/json')) {
+                        const text = await response.text();
+                        throw new Error(`Server returned HTML instead of JSON. Status: ${response.status}`);
+                    }
                     throw new Error(`Server returned ${response.status}: ${response.statusText}`);
                 }
                 
@@ -968,13 +975,20 @@
         // Save message to server
         async function saveMessage(author, content) {
             try {
-                const response = await fetch('/messages', {
+                const response = await fetch(`${API_BASE_URL}/messages`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ author, content })
                 });
+                
+                // Check if response is JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}...`);
+                }
                 
                 if (!response.ok) {
                     const errorData = await response.json();
@@ -1021,7 +1035,7 @@
         // Delete message from server
         async function deleteMessage(messageId) {
             try {
-                const response = await fetch(`/messages/${messageId}`, {
+                const response = await fetch(`${API_BASE_URL}/messages/${messageId}`, {
                     method: 'DELETE'
                 });
                 
@@ -1124,4 +1138,5 @@
 </body>
 
 </html>
+
 
