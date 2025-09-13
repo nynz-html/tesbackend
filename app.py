@@ -17,7 +17,7 @@ def init_db():
                   author TEXT NOT NULL,
                   content TEXT NOT NULL,
                   date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                  session_id TEXT NOT NULL)''')
+                  session_id TEXT NOT NULL)''')  # Changed from delete_token to session_id
     conn.commit()
     conn.close()
 
@@ -39,30 +39,32 @@ def index():
 def get_messages():
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT id, author, content, date_created FROM messages ORDER BY date_created DESC")
+    c.execute("SELECT id, author, content, date_created, session_id FROM messages ORDER BY date_created DESC")
     messages = []
     for row in c.fetchall():
+        # Check if the current user can delete this message
+        can_delete = 'user_id' in session and row['session_id'] == session['user_id']
         messages.append({
             'id': row['id'],
             'author': row['author'],
             'content': row['content'],
             'date': datetime.strptime(row['date_created'], '%Y-%m-%d %H:%M:%S').strftime('%B %d, %Y'),
-            'can_delete': 'user_id' in session and row['session_id'] == session['user_id']
+            'can_delete': can_delete
         })
     conn.close()
     return jsonify(messages)
 
 @app.route('/messages', methods=['POST'])
 def add_message():
+    # Ensure user has a session ID
+    if 'user_id' not in session:
+        session['user_id'] = str(uuid.uuid4())
+    
     author = request.json.get('author')
     content = request.json.get('content')
     
     if not author or not content:
         return jsonify({'error': 'Author and content are required'}), 400
-    
-    # Get session ID
-    if 'user_id' not in session:
-        session['user_id'] = str(uuid.uuid4())
     
     conn = get_db_connection()
     c = conn.cursor()
@@ -98,9 +100,11 @@ def delete_message(message_id):
     result = c.fetchone()
     
     if not result:
+        conn.close()
         return jsonify({'error': 'Message not found'}), 404
     
     if result['session_id'] != session['user_id']:
+        conn.close()
         return jsonify({'error': 'Not authorized to delete this message'}), 403
     
     c.execute("DELETE FROM messages WHERE id = ?", (message_id,))
