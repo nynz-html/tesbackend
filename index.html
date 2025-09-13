@@ -859,17 +859,73 @@
         // Check on scroll
         window.addEventListener('scroll', checkScroll);
         
-        // Message Form Handling - UPDATED FOR MULTI-DEVICE SUPPORT
+        // Message Form Handling - FIXED VERSION
         const messageForm = document.getElementById('messageForm');
         const messagesContainer = document.getElementById('messagesContainer');
+        
+        // Function to show notification
+        function showNotification(message, isError = false) {
+            // Remove existing notifications
+            const existingNotification = document.querySelector('.notification');
+            if (existingNotification) {
+                existingNotification.remove();
+            }
+            
+            // Create new notification
+            const notification = document.createElement('div');
+            notification.className = `notification ${isError ? 'error' : 'success'}`;
+            notification.textContent = message;
+            
+            // Add styles for notification
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.right = '20px';
+            notification.style.padding = '10px 20px';
+            notification.style.borderRadius = '5px';
+            notification.style.color = 'white';
+            notification.style.zIndex = '10000';
+            notification.style.opacity = '0';
+            notification.style.transition = 'opacity 0.3s ease';
+            
+            if (isError) {
+                notification.style.background = '#ff6b6b';
+            } else {
+                notification.style.background = '#4caf50';
+            }
+            
+            document.body.appendChild(notification);
+            
+            // Animate in
+            setTimeout(() => {
+                notification.style.opacity = '1';
+            }, 10);
+            
+            // Animate out after 3 seconds
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                setTimeout(() => {
+                    notification.remove();
+                }, 300);
+            }, 3000);
+        }
         
         // Load messages from server
         async function loadMessages() {
             try {
                 const response = await fetch('/messages');
+                
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                
                 const messages = await response.json();
                 
                 messagesContainer.innerHTML = '';
+                
+                if (messages.length === 0) {
+                    messagesContainer.innerHTML = '<p class="no-messages">No messages yet. Be the first to share a memory!</p>';
+                    return;
+                }
                 
                 messages.forEach(message => {
                     const messageCard = document.createElement('div');
@@ -904,7 +960,8 @@
                 }, 100);
             } catch (error) {
                 console.error('Error loading messages:', error);
-                messagesContainer.innerHTML = '<p>Error loading messages. Please try again later.</p>';
+                messagesContainer.innerHTML = '<p class="error-message">Error loading messages. Please try again later.</p>';
+                showNotification('Failed to load messages. Please check your connection.', true);
             }
         }
         
@@ -919,37 +976,45 @@
                     body: JSON.stringify({ author, content })
                 });
                 
-                if (response.ok) {
-                    const newMessage = await response.json();
-                    
-                    // Add the new message to the UI
-                    const messageCard = document.createElement('div');
-                    messageCard.className = 'message-card visible';
-                    messageCard.dataset.id = newMessage.id;
-                    
-                    messageCard.innerHTML = `
-                        <div class="message-header">
-                            <span class="message-author">${newMessage.author}</span>
-                            <span class="message-date">${newMessage.date}</span>
-                        </div>
-                        <div class="message-content">${newMessage.content}</div>
-                        <button class="delete-btn" data-id="${newMessage.id}">Delete</button>
-                    `;
-                    
-                    messagesContainer.prepend(messageCard);
-                    
-                    // Add delete functionality
-                    const deleteBtn = messageCard.querySelector('.delete-btn');
-                    deleteBtn.addEventListener('click', function() {
-                        deleteMessage(newMessage.id);
-                    });
-                } else {
-                    console.error('Failed to save message');
-                    alert('Failed to save message. Please try again.');
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Server returned ${response.status}`);
                 }
+                
+                const newMessage = await response.json();
+                
+                // Add the new message to the UI
+                const messageCard = document.createElement('div');
+                messageCard.className = 'message-card visible';
+                messageCard.dataset.id = newMessage.id;
+                
+                messageCard.innerHTML = `
+                    <div class="message-header">
+                        <span class="message-author">${newMessage.author}</span>
+                        <span class="message-date">${newMessage.date}</span>
+                    </div>
+                    <div class="message-content">${newMessage.content}</div>
+                    <button class="delete-btn" data-id="${newMessage.id}">Delete</button>
+                `;
+                
+                // Remove "no messages" text if it exists
+                const noMessages = document.querySelector('.no-messages');
+                if (noMessages) {
+                    noMessages.remove();
+                }
+                
+                messagesContainer.prepend(messageCard);
+                
+                // Add delete functionality
+                const deleteBtn = messageCard.querySelector('.delete-btn');
+                deleteBtn.addEventListener('click', function() {
+                    deleteMessage(newMessage.id);
+                });
+                
+                showNotification('Message sent successfully!');
             } catch (error) {
                 console.error('Error saving message:', error);
-                alert('Error saving message. Please check your connection and try again.');
+                showNotification(`Failed to send message: ${error.message}`, true);
             }
         }
         
@@ -960,46 +1025,103 @@
                     method: 'DELETE'
                 });
                 
-                if (response.ok) {
-                    // Remove the message from the UI
-                    const messageCard = document.querySelector(`.message-card[data-id="${messageId}"]`);
-                    if (messageCard) {
-                        messageCard.remove();
-                    }
-                } else {
-                    console.error('Failed to delete message');
-                    alert('Failed to delete message. It may have already been deleted or you do not have permission.');
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Server returned ${response.status}`);
+                }
+                
+                // Remove the message from the UI
+                const messageCard = document.querySelector(`.message-card[data-id="${messageId}"]`);
+                if (messageCard) {
+                    messageCard.remove();
+                }
+                
+                showNotification('Message deleted successfully!');
+                
+                // If no messages left, show the "no messages" text
+                if (document.querySelectorAll('.message-card').length === 0) {
+                    messagesContainer.innerHTML = '<p class="no-messages">No messages yet. Be the first to share a memory!</p>';
                 }
             } catch (error) {
                 console.error('Error deleting message:', error);
-                alert('Error deleting message. Please check your connection and try again.');
+                showNotification(`Failed to delete message: ${error.message}`, true);
             }
         }
         
         messageForm.addEventListener('submit', function(e) {
             e.preventDefault();
             
-            const author = document.getElementById('authorName').value;
-            const content = document.getElementById('messageContent').value;
+            const author = document.getElementById('authorName').value.trim();
+            const content = document.getElementById('messageContent').value.trim();
             
-            if (author && content) {
-                saveMessage(author, content);
-                
-                // Reset form
-                messageForm.reset();
-                
-                // Scroll to messages
-                window.scrollTo({
-                    top: messagesContainer.offsetTop - 100,
-                    behavior: 'smooth'
-                });
+            if (!author) {
+                showNotification('Please enter your name', true);
+                document.getElementById('authorName').focus();
+                return;
             }
+            
+            if (!content) {
+                showNotification('Please enter a message', true);
+                document.getElementById('messageContent').focus();
+                return;
+            }
+            
+            saveMessage(author, content);
+            
+            // Reset form
+            messageForm.reset();
+            
+            // Scroll to messages
+            window.scrollTo({
+                top: messagesContainer.offsetTop - 100,
+                behavior: 'smooth'
+            });
         });
         
         // Initial load of messages
         loadMessages();
+        
+        // Add some CSS for notifications and messages
+        const style = document.createElement('style');
+        style.textContent = `
+            .notification {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 20px;
+                border-radius: 5px;
+                color: white;
+                z-index: 10000;
+                opacity: 0;
+                transition: opacity 0.3s ease;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            }
+            
+            .notification.success {
+                background-color: #4caf50;
+            }
+            
+            .notification.error {
+                background-color: #ff6b6b;
+            }
+            
+            .no-messages {
+                text-align: center;
+                padding: 40px;
+                color: rgba(255, 255, 255, 0.6);
+                font-style: italic;
+            }
+            
+            .error-message {
+                text-align: center;
+                padding: 40px;
+                color: #ff6b6b;
+            }
+        `;
+        document.head.appendChild(style);
     });
 </script>
 </body>
 
 </html>
+
